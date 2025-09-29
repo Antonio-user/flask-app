@@ -15,7 +15,7 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                sh 'docker-internet build -t $REGISTRY/$IMAGE_NAME:latest .'
+                sh 'docker-internet build --network host -t $REGISTRY/$IMAGE_NAME:latest .'
             }
         }
 
