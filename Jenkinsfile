@@ -16,6 +16,7 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
+                // Option A : build dans Docker normal puis push au registre local
                 sh 'docker-internet build --network host -t $REGISTRY/$IMAGE_NAME:latest .'
             }
         }
@@ -26,19 +27,35 @@ pipeline {
             }
         }
 
+        stage('Setup Minikube') {
+            steps {
+                // Démarrer Minikube si ce n'est pas déjà fait
+                sh 'minikube start --driver=docker || echo "Minikube already started"'
+                sh 'kubectl get nodes'
+            }
+        }
+
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                    # Charger l'image dans Minikube (important pour localhost:4000)
+                    # Charger l'image dans Minikube
                     minikube image load $REGISTRY/$IMAGE_NAME:latest
 
                     # Appliquer les manifests Kubernetes
                     kubectl apply -f $K8S_DIR/deployment.yaml
                     kubectl apply -f $K8S_DIR/service.yaml
 
-                    # Vérifier que les pods tournent
+                    # Vérifier que le déploiement est prêt
                     kubectl rollout status deployment/flask-app
                 '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                // Vérifier que les pods tournent correctement
+                sh 'kubectl get pods -o wide'
+                sh 'kubectl get svc -o wide'
             }
         }
     }
