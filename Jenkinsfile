@@ -4,6 +4,8 @@ pipeline {
     environment {
         REGISTRY = "localhost:4000"
         IMAGE_NAME = "flask_hello"
+        DEPLOYMENT_NAME = "flask-app"
+        K8S_DIR = "k8s"
     }
 
     stages {
@@ -25,12 +27,22 @@ pipeline {
             }
         }
 
-        stage('Deploy Container') {
+        stage('Load image into Minikube') {
             steps {
-                sh '''
-                    docker-internet rm -f flask_app || true
-                    docker-internet run -d --name flask_app -p 5000:5000 $REGISTRY/$IMAGE_NAME:latest
-                '''
+                sh 'minikube image load $REGISTRY/$IMAGE_NAME:latest'
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f $K8S_DIR/'
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh 'kubectl get pods'
+                sh 'kubectl get svc'
             }
         }
     }
