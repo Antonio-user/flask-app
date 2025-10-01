@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY = "localhost:4000"
+        REGISTRY   = "localhost:4000"
         IMAGE_NAME = "flask_hello"
-        DEPLOYMENT_NAME = "flask-app"
-        K8S_DIR = "k8s"
+        K8S_DIR    = "k8s"
     }
 
     stages {
@@ -27,22 +26,19 @@ pipeline {
             }
         }
 
-        stage('Load image into Minikube') {
-            steps {
-                sh 'minikube image load $REGISTRY/$IMAGE_NAME:latest'
-            }
-        }
-
         stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -f $K8S_DIR/'
-            }
-        }
+                sh '''
+                    # Charger l'image dans Minikube (important pour localhost:4000)
+                    minikube image load $REGISTRY/$IMAGE_NAME:latest
 
-        stage('Verify Deployment') {
-            steps {
-                sh 'kubectl get pods'
-                sh 'kubectl get svc'
+                    # Appliquer les manifests Kubernetes
+                    kubectl apply -f $K8S_DIR/deployment.yaml
+                    kubectl apply -f $K8S_DIR/service.yaml
+
+                    # Vérifier que les pods tournent
+                    kubectl rollout status deployment/flask-app
+                '''
             }
         }
     }
