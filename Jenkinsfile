@@ -5,6 +5,7 @@ pipeline {
         REGISTRY   = "localhost:4000"
         IMAGE_NAME = "flask_hello"
         K8S_DIR    = "k8s"
+        KUBECONFIG = "/home/antonio/.kube/config" // Chemin vers kubeconfig de ton utilisateur
     }
 
     stages {
@@ -16,36 +17,33 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                // Option A : build dans Docker normal puis push au registre local
-                sh 'docker-internet build --network host -t $REGISTRY/$IMAGE_NAME:latest .'
+                // Construire l'image Docker
+                sh 'docker build --network host -t $REGISTRY/$IMAGE_NAME:latest .'
             }
         }
 
         stage('Push to Local Registry') {
             steps {
-                sh 'docker-internet push $REGISTRY/$IMAGE_NAME:latest'
+                // Pousser l'image dans le registre local (si utilisé)
+                sh 'docker push $REGISTRY/$IMAGE_NAME:latest'
             }
         }
 
-        stage('Setup Minikube') {
+        stage('Load image into Minikube') {
             steps {
-                // Démarrer Minikube si ce n'est pas déjà fait
-                sh 'minikube start --driver=docker || echo "Minikube already started"'
-                sh 'kubectl get nodes'
+                // Charger l'image directement dans Minikube
+                sh 'minikube image load $REGISTRY/$IMAGE_NAME:latest'
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                    # Charger l'image dans Minikube
-                    minikube image load $REGISTRY/$IMAGE_NAME:latest
-
                     # Appliquer les manifests Kubernetes
                     kubectl apply -f $K8S_DIR/deployment.yaml
                     kubectl apply -f $K8S_DIR/service.yaml
 
-                    # Vérifier que le déploiement est prêt
+                    # Vérifier que les pods sont déployés correctement
                     kubectl rollout status deployment/flask-app
                 '''
             }
@@ -53,9 +51,9 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                // Vérifier que les pods tournent correctement
-                sh 'kubectl get pods -o wide'
-                sh 'kubectl get svc -o wide'
+                // Vérifier que les pods tournent
+                sh 'kubectl get pods -n default'
+                sh 'kubectl get svc -n default'
             }
         }
     }
